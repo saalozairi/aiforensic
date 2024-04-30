@@ -1,13 +1,9 @@
-# aiforensic
+# facialrecognition
 Project Title
-Visualizing Cybercrime Investigation with AI assistance
+Enhancing Computer Security with facial recognition.
 Project Vision:
-For Computer Forensic Analysts,
-whose victims of crime,
-the AI,
-is a AI forensic assistant,
-that Sorts evidence out via relevance to make it easier to assess.
+To enhance computer security by using a biometric approach which in this case is facial recognition.
 Supervisor:
-Wang Miao
+Vivek S.
 
 
