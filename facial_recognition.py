@@ -50,7 +50,7 @@ try:
             print("Failed to grab frame")
             break
 
-        # Only process every other frame to save time
+        # Only process every other frame to save computational resources
         if frame_number % 2 == 0:
             # Placeholder function for face detection
             # This would typically involve using a pre-trained face detection model
@@ -86,4 +86,3 @@ finally:
             if user_input:
                 save_new_face(face_info['face_image'], user_input)
             cv2.destroyAllWindows()
-
