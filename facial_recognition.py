@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 import os
 
-# Function to load and encode images from a folder
 def load_and_encode_images(image_folder):
     face_encodings = {}
     for filename in os.listdir(image_folder):
@@ -19,9 +18,7 @@ def load_and_encode_images(image_folder):
 
 # Function to encode faces in an image
 def encode_faces(image):
-    # Placeholder function for face encoding
-    # This would typically involve using a deep learning model to extract facial features
-    # For simplicity, we'll return a random encoding
+    
     encoding = [np.random.rand(128)]  # Random 128-dimensional vector
     return encoding
 
@@ -52,14 +49,10 @@ try:
 
         # Only process every other frame to save computational resources
         if frame_number % 2 == 0:
-            # Placeholder function for face detection
-            # This would typically involve using a pre-trained face detection model
-            # For simplicity, we'll skip face detection and assume the whole frame contains a face
             face_location = (0, 0, frame.shape[0], frame.shape[1])
             face_encoding = encode_faces(frame)
 
-            # Placeholder for comparing faces with known faces
-            # For simplicity, we'll randomly assign a name or generate a new face ID
+            
             if known_faces:
                 name = list(known_faces.keys())[0]  # Randomly assign a name from known faces
             else:
@@ -79,7 +72,7 @@ finally:
 
     # After closing the camera, ask user to name any new faces
     for face_id, face_info in face_trackers.items():
-        if face_info['count'] > 10:  # Confirm face only if seen more than 10 times
+        if face_info['count'] > 4:  # Confirm face only if seen more than 4 times
             cv2.imshow("Save Face?", face_info['face_image'])
             cv2.waitKey(1)
             user_input = input(f"Enter name for {face_id} or press enter to skip: ").strip()
