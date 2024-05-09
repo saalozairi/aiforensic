@@ -1,81 +1,122 @@
 import cv2
 import numpy as np
 import os
+import tkinter as tk
+from PIL import Image, ImageTk
 
+# load and encode known faces
 def load_and_encode_images(image_folder):
     face_encodings = {}
     for filename in os.listdir(image_folder):
         if filename.endswith(('.png', '.jpg', '.jpeg')):
             image_path = os.path.join(image_folder, filename)
-            image = cv2.imread(image_path)
-            encodings = encode_faces(image)
-            if encodings:
+            face_image = cv2.imread(image_path)  # load image
+            encoding = encode_face(face_image)
+            if encoding is not None:
                 face_name = os.path.splitext(filename)[0]
-                face_encodings[face_name] = encodings[0]
+                face_encodings[face_name] = encoding
             else:
-                print(f"No faces found in the image {filename}.")
+                print(f"No face found in the image {filename}.")
     return face_encodings
 
-# Function to encode faces in an image
-def encode_faces(image):
-    
-    encoding = [np.random.rand(128)]  # Random 128-dimensional vector
-    return encoding
+# encode a single face
+def encode_face(face_image):
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    faces = face_cascade.detectMultiScale(face_image, scaleFactor=1.3, minNeighbors=5)
+    if len(faces) == 1:  
+        (x, y, w, h) = faces[0]
+        face_roi = face_image[y:y+h, x:x+w] 
+        face_encoding = cv2.resize(face_roi, (128, 128)) 
+        return face_encoding, (x, y, w, h)
+    else:
+        return None, None
 
-# Function to save a new face image
-def save_new_face(image, name, directory='known_faces'):
+# recognize faces in the video stream
+def recognize_faces(frame, known_faces):
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    faces = face_cascade.detectMultiScale(frame, scaleFactor=1.3, minNeighbors=5)
+    print(f"Detected {len(faces)} faces in the frame")  
+    for (x, y, w, h) in faces:
+        face_roi = frame[y:y+h, x:x+w]
+        face_encoding = cv2.resize(face_roi, (128, 128))
+        # Compare with known faces
+        min_distance = float('inf')
+        found_name = "Unknown"
+        for name, known_encoding in known_faces.items():
+            distance = np.linalg.norm(face_encoding - known_encoding[0])
+            print(f"Distance to {name}: {distance}")
+            if distance < min_distance:  # Update the minimum distance and the found name
+                min_distance = distance
+                found_name = name
+        # Draw rectangle and name on the frame
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+        cv2.putText(frame, found_name, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36,255,12), 2)
+        if found_name == "Unknown" and is_new_face(face_roi):
+            save_new_face(face_roi)
+
+# save a new face image
+def save_new_face(face_image, directory='known_faces'):
     if not os.path.exists(directory):
         os.makedirs(directory)
-    cv2.imwrite(f"{directory}/{name}.jpg", image)
+    cv2.imwrite(f"{directory}/new_face.jpg", face_image)
+    new_face_name = input("New face detected. Please provide a name: ")
+    if new_face_name:
+        os.rename(f"{directory}/new_face.jpg", f"{directory}/{new_face_name}.jpg")
+        print(f"New face named as {new_face_name}.")
+    else:
+        os.remove(f"{directory}/new_face.jpg")
+        print("New face deleted as no name was provided.")
 
-# Initialize video capture from webcam
-video_capture = cv2.VideoCapture(0)
-if not video_capture.isOpened():
-    raise Exception("Could not open video device")
+# check if the detected face is a new face
+def is_new_face(face_image, threshold=1000):
+    # Compare with previously saved faces to check if it's a new face
+    known_faces_folder = 'known_faces'
+    for filename in os.listdir(known_faces_folder):
+        if filename.endswith(('.png', '.jpg', '.jpeg')):
+            known_face_image = cv2.imread(os.path.join(known_faces_folder, filename))
+            known_face_image_resized = cv2.resize(known_face_image, (face_image.shape[1], face_image.shape[0]))
+            distance = np.linalg.norm(face_image - known_face_image_resized)
+            if distance < threshold:
+                return False  # Not a new face
+    return True  # New face
 
-# Initialize dictionaries to store known faces and new faces
-known_faces = load_and_encode_images('known_faces')
-new_faces = {}
-face_trackers = {}
-frame_number = 0
+# start face recognition
+def start_recognition():
+    video_capture = cv2.VideoCapture(0)
+    if not video_capture.isOpened():
+        raise Exception("Could not open video device")
 
-try:
-    while True:
-        ret, frame = video_capture.read()
-        frame_number += 1
-        if not ret:
-            print("Failed to grab frame")
-            break
+    # load known faces and their encodings
+    known_faces = load_and_encode_images('C:/Users/Solo/Desktop/face_recognition/known_faces')
 
-        # Only process every other frame to save computational resources
-        if frame_number % 2 == 0:
-            face_location = (0, 0, frame.shape[0], frame.shape[1])
-            face_encoding = encode_faces(frame)
+    frame_number = 0
+    try:
+        while True:
+            ret, frame = video_capture.read()
+            if not ret:
+                print("Failed to grab frame")
+                break
 
-            
-            if known_faces:
-                name = list(known_faces.keys())[0]  # Randomly assign a name from known faces
-            else:
-                name = f"new_face_{len(new_faces) + 1}"  # Generate a new face ID for unknown faces
+            frame_number += 1
+            if frame_number % 2 == 0:
+                recognize_faces(frame, known_faces)
 
-            top, right, bottom, left = face_location
-            cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-            cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
+                cv2.imshow('Video', frame)
 
-        cv2.imshow('Video', frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+    finally:
+        video_capture.release()
+        cv2.destroyAllWindows()
 
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-finally:
-    video_capture.release()
-    cv2.destroyAllWindows()
+# create a start GUI
+def create_start_gui():
+    root = tk.Tk()
+    root.title("Face Recognition System")
 
-    # After closing the camera, ask user to name any new faces
-    for face_id, face_info in face_trackers.items():
-        if face_info['count'] > 4:  # Confirm face only if seen more than 4 times
-            cv2.imshow("Save Face?", face_info['face_image'])
-            cv2.waitKey(1)
-            user_input = input(f"Enter name for {face_id} or press enter to skip: ").strip()
-            if user_input:
-                save_new_face(face_info['face_image'], user_input)
-            cv2.destroyAllWindows()
+    start_button = tk.Button(root, text="Start Face Recognition", command=start_recognition)
+    start_button.pack()
+
+    root.mainloop()
+
+create_start_gui()
